@@ -1,0 +1,5 @@
+outputs/
+__pycache__/
+*.pyc
+CODEX_REVIEW.md
+~$*.xlsx

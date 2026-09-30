@@ -1,0 +1,185 @@
+{
+  "masonry": [
+    "partition wall",
+    "block work",
+    "blockwork",
+    "brickwork",
+    "brick wall",
+    "cmu",
+    "blocks"
+  ],
+  "tile": [
+    "ceramic",
+    "porcelain",
+    "porclain",
+    "skirting",
+    "tiling",
+    "floor tile",
+    "wall tile"
+  ],
+  "painting": [
+    "paint",
+    "painted",
+    "emulsion",
+    "coating finish"
+  ],
+  "plaster": [
+    "plastering",
+    "render",
+    "rendering"
+  ],
+  "waterproofing": [
+    "water proofing",
+    "membrane",
+    "bitumen",
+    "damp proof"
+  ],
+  "foundation": [
+    "blinding",
+    "footing",
+    "footings",
+    "pile cap",
+    "lean concrete"
+  ],
+  "column": [
+    "columns",
+    "coulmns",
+    "pier"
+  ],
+  "slab": [
+    "slabs",
+    "suspended slab",
+    "deck",
+    "beams and stairs"
+  ],
+  "excavation": [
+    "excavate",
+    "cut",
+    "earthworks",
+    "digging"
+  ],
+  "backfilling": [
+    "backfill",
+    "fill",
+    "compaction"
+  ],
+  "sanitary fixture": [
+    "water closet",
+    "wc",
+    "wash basin",
+    "washbasin",
+    "urinal",
+    "sink",
+    "shower"
+  ],
+  "light fixture": [
+    "internal light",
+    "recessed light",
+    "luminaire",
+    "lighting fixture",
+    "downlight"
+  ],
+  "wiring device": [
+    "wiring accessory",
+    "switch",
+    "socket",
+    "outlet",
+    "isolator"
+  ],
+  "panel board": [
+    "distribution board",
+    "smdb",
+    "mdb",
+    "dbs",
+    "panelboard"
+  ],
+  "drainage pipe": [
+    "drainage piping",
+    "soil pipe",
+    "waste pipe",
+    "drain pipe"
+  ],
+  "water pipe": [
+    "water supply pipe",
+    "hot cold water",
+    "potable water pipe"
+  ],
+  "water heater": [
+    "geyser",
+    "calorifier",
+    "boiler"
+  ],
+  "window": [
+    "glazing",
+    "windows"
+  ],
+  "door": [
+    "doors",
+    "doorset"
+  ],
+  "busbar": [
+    "busway",
+    "bus duct",
+    "busduct"
+  ],
+  "drywall": [
+    "dry wall",
+    "gypsum board",
+    "plasterboard"
+  ],
+  "ceiling": [
+    "ceilings",
+    "false ceiling",
+    "suspended ceiling"
+  ],
+  "clean agent": [
+    "novec",
+    "fm200",
+    "fm 200",
+    "inergen",
+    "gaseous suppression",
+    "gas suppression"
+  ],
+  "earthing": [
+    "grounding",
+    "ground rod",
+    "earth pit",
+    "earth rod"
+  ],
+  "ats": [
+    "automatic transfer switch",
+    "transfer switch"
+  ],
+  "casework": [
+    "cabinet",
+    "cabinets",
+    "millwork",
+    "vanity unit"
+  ],
+  "handrail": [
+    "guard rail",
+    "guardrail",
+    "railing",
+    "balustrade",
+    "pipe rail",
+    "hand rail"
+  ],
+  "skirting": [
+    "base finish",
+    "baseboard",
+    "base board",
+    "rubber base",
+    "wall base",
+    "skirting board"
+  ],
+  "hvac": [
+    "split unit",
+    "air conditioning",
+    "ac unit",
+    "a/c",
+    "heat pump",
+    "fcu",
+    "ahu",
+    "aircon"
+  ]
+}

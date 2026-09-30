@@ -1,0 +1,256 @@
+{
+  "_about": "CSI MasterFormat division -> the trade words its work uses. Standard industry knowledge, not tuned to any one BOQ. Used as context: a Division 26 line prefers electrical activities.",
+  "1": [
+    "project management",
+    "submittal",
+    "temporary",
+    "facility",
+    "site service",
+    "safety",
+    "security",
+    "quality",
+    "inspection",
+    "cleaning",
+    "waste",
+    "closeout",
+    "documentation",
+    "mobilization"
+  ],
+  "2": [
+    "demolition",
+    "site",
+    "survey",
+    "excavation"
+  ],
+  "3": [
+    "concrete",
+    "slab",
+    "column",
+    "core wall",
+    "raft",
+    "foundation",
+    "footing",
+    "precast",
+    "blinding",
+    "retaining wall",
+    "screed"
+  ],
+  "4": [
+    "masonry",
+    "blockwork",
+    "block",
+    "brick",
+    "partition"
+  ],
+  "5": [
+    "steel",
+    "steelwork",
+    "metal",
+    "railing",
+    "balustrade",
+    "handrail",
+    "canopy",
+    "deck",
+    "cladding",
+    "ladder",
+    "grating",
+    "metal works"
+  ],
+  "6": [
+    "joinery",
+    "casework",
+    "wood",
+    "millwork",
+    "carpentry"
+  ],
+  "7": [
+    "waterproofing",
+    "damp proofing",
+    "insulation",
+    "roofing",
+    "roof",
+    "sealant",
+    "membrane"
+  ],
+  "8": [
+    "door",
+    "window",
+    "glazing",
+    "curtain wall",
+    "facade",
+    "louver",
+    "ironmongery",
+    "mirror",
+    "glass",
+    "partition"
+  ],
+  "9": [
+    "finish",
+    "floor",
+    "wall",
+    "ceiling",
+    "painting",
+    "drywall",
+    "gypsum",
+    "skirting",
+    "tile",
+    "false ceiling",
+    "partition"
+  ],
+  "10": [
+    "specialty",
+    "signage",
+    "wayfinding",
+    "locker",
+    "toilet accessory",
+    "cubicle",
+    "wall protection",
+    "sign"
+  ],
+  "11": [
+    "equipment",
+    "kitchen",
+    "pantry",
+    "nourishment",
+    "facade access",
+    "maintenance unit",
+    "cleaning system"
+  ],
+  "12": [
+    "furnishing",
+    "vanity",
+    "furniture",
+    "blind"
+  ],
+  "13": [
+    "water feature",
+    "fountain",
+    "special construction"
+  ],
+  "14": [
+    "elevator",
+    "lift",
+    "escalator",
+    "conveying"
+  ],
+  "21": [
+    "sprinkler",
+    "fire suppression",
+    "hose cabinet",
+    "fire pump",
+    "jockey pump",
+    "clean agent",
+    "fire protection",
+    "fire"
+  ],
+  "22": [
+    "drainage",
+    "water supply",
+    "pipework",
+    "plumbing",
+    "sanitary",
+    "fixture",
+    "pump",
+    "tank",
+    "water heater",
+    "grey water",
+    "irrigation",
+    "medical gas",
+    "water treatment"
+  ],
+  "23": [
+    "hvac",
+    "ductwork",
+    "chiller",
+    "heat exchanger",
+    "air handling",
+    "fan coil",
+    "vav",
+    "diffuser",
+    "grille",
+    "damper",
+    "chilled water",
+    "exhaust",
+    "fan",
+    "insulation",
+    "primary pump"
+  ],
+  "25": [
+    "bms",
+    "building management",
+    "automation",
+    "control"
+  ],
+  "26": [
+    "electrical",
+    "cable",
+    "cabling",
+    "wiring",
+    "conduit",
+    "cable tray",
+    "light",
+    "lighting",
+    "fitting",
+    "switchgear",
+    "distribution board",
+    "panel board",
+    "transformer",
+    "rmu",
+    "generator",
+    "ats",
+    "earthing",
+    "lightning protection",
+    "busbar",
+    "busway",
+    "riser",
+    "socket",
+    "switch",
+    "ups",
+    "main distribution"
+  ],
+  "27": [
+    "data",
+    "telephone",
+    "telecom",
+    "structured cabling",
+    "low current",
+    "public address",
+    "nurse call",
+    "av system",
+    "rack",
+    "server",
+    "communication"
+  ],
+  "28": [
+    "fire alarm",
+    "detector",
+    "cctv",
+    "access control",
+    "security head",
+    "intrusion",
+    "surveillance"
+  ],
+  "31": [
+    "excavation",
+    "earthwork",
+    "backfill",
+    "compaction",
+    "shoring",
+    "dewatering",
+    "soil"
+  ],
+  "32": [
+    "paving",
+    "landscaping",
+    "external works",
+    "wheel stop",
+    "irrigation",
+    "kerb"
+  ],
+  "33": [
+    "utility",
+    "external drainage",
+    "manhole",
+    "sewer"
+  ]
+}
