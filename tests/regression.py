@@ -142,6 +142,87 @@ def tower_checks(tmp):
     yield "tower: floor 4 gains exactly the 4th-floor NOVEC money (239,105 + 420,010)", \
         abs(costs.get("F04-25", 0) - base.get("F04-25", 0) - 659115) < 0.01
 
+def revision_checks():
+    """Rev B of the case study: one line inserted at the top (every row shifts), one amount changed, one
+    line reworded, one deleted, on top of a planner's own override in Rev A."""
+    import csv, importlib.util
+    spec = importlib.util.spec_from_file_location("engine", ENGINE)
+    eng = importlib.util.module_from_spec(spec); spec.loader.exec_module(eng)
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    with tempfile.TemporaryDirectory() as tmp:
+        a, b = str(Path(tmp) / "revA"), str(Path(tmp) / "revB")
+        run = lambda *x: subprocess.run([sys.executable, str(ENGINE), *map(str, x)], capture_output=True, env=env,
+                                        text=True, encoding="utf-8")
+        run("match", BOQ, XER, "--out", a)
+        p = a + "-mapping.csv"
+        mp = list(csv.DictReader(open(p, encoding="utf-8-sig")))
+        by = {x["ref"]: x for x in mp}
+        groups = eng.group_activities(eng.Xer(XER).activities())
+        multi = next(g for g in groups.values() if len(g) > 1)
+        by["5"].update(activity_group=multi[0]["base"], split=f"{multi[0]['zone']}:100")  # planner's override
+        with open(p, "w", newline="", encoding="utf-8-sig") as fh:
+            w = csv.DictWriter(fh, fieldnames=mp[0].keys()); w.writeheader(); w.writerows(mp)
+        wb = load_workbook(BOQ, data_only=True)
+        ws = next(s for s in wb.worksheets if eng.find_header([list(r) for r in s.values])[0] is not None)
+        data = [list(r) for r in ws.values]
+        hdr, cols = eng.find_header(data)
+        ref_row = lambda ref: next(i + 1 for i, r in enumerate(data) if i > hdr and
+                                   (str(r[cols["ref"]]).strip() if "ref" in cols else str(i + 1)) == ref)
+        cell = lambda row, k: ws.cell(row, cols[k] + 1)
+        old2 = float(by["2"]["amount"])
+        cell(ref_row("2"), "qty").value *= 2
+        if "amount" in cols:
+            cell(ref_row("2"), "amount").value = old2 * 2
+        cell(ref_row("3"), "desc").value = str(cell(ref_row("3"), "desc").value) + " incl."
+        ws.delete_rows(ref_row("4"))
+        ws.insert_rows(hdr + 2)
+        for k, v in dict(ref="N1", title="Stone Cladding", desc="Granite stone cladding", unit="m2", qty=10,
+                         rate=100, amount=1000).items():
+            if k in cols:
+                cell(hdr + 2, k).value = v
+        rev = Path(tmp) / "revB.xlsx"; wb.save(rev)
+        r = run("revise", rev, XER, "--previous", p, "--out", b)
+        yield f"revise runs ({r.stderr[-200:]})", r.returncode == 0
+        if r.returncode:
+            return
+        new = {x["ref"]: x for x in csv.DictReader(open(b + "-mapping.csv", encoding="utf-8-sig"))}
+        st = lambda ref: new[ref]["revision_status"]
+        yield "22 + 1 - 1 lines", len(new) == 22
+        yield "inserted line = NEW", st("N1") == "NEW"
+        yield "doubled line = CHANGED, decision kept", st("2") == "CHANGED" and \
+            new["2"]["activity_group"] == by["2"]["activity_group"]
+        yield "reworded line = REWORDED, previous decision shown", st("3") == "REWORDED" and \
+            new["3"]["previous_activity"] == by["3"]["activity_group"]
+        yield "planner override survives shifted rows", st("5") == "UNCHANGED" and \
+            new["5"]["activity_group"] == multi[0]["base"] and new["5"]["split"] == by["5"]["split"]
+        same = [x for k, x in new.items() if k not in {"N1", "2", "3"}]
+        yield "every other line UNCHANGED", all(x["revision_status"] == "UNCHANGED" for x in same)
+        rv = load_workbook(b + "-revision.xlsx")
+        summ = {x["Item"]: x["Value"] for x in rows(rv, "Summary")}
+        yield "totals reconcile", summ["Reconciliation"] == "PASS"
+        yield "3 lines to review", len(rows(rv, "To Review")) == 3
+        yield "deleted line listed", [str(x["BOQ ref"]) for x in rows(rv, "Deleted")] == ["4"]
+        r = run("build", rev, XER, "--out", b)
+        yield f"build accepts revised mapping ({r.stderr[-200:]})", r.returncode == 0
+        exp = xer_expenses(b + ".xer") if r.returncode == 0 else []
+        yield "override loads on one activity in the XER", \
+            len([e for e in exp if e["cost_name"].startswith("BOQ 5 ")]) == 1
+        # a schedule that lost the override's activity: the decision must not load silently
+        mp2 = list(csv.DictReader(open(p, encoding="utf-8-sig")))
+        for x in mp2:
+            if x["ref"] == "5":
+                x["activity_group"] = "Activity Removed From Schedule"
+        p2 = str(Path(tmp) / "old-mapping.csv")
+        with open(p2, "w", newline="", encoding="utf-8-sig") as fh:
+            w = csv.DictWriter(fh, fieldnames=mp2[0].keys()); w.writeheader(); w.writerows(mp2)
+        c = str(Path(tmp) / "revC")
+        run("revise", rev, XER, "--previous", p2, "--out", c)
+        n5 = next(x for x in csv.DictReader(open(c + "-mapping.csv", encoding="utf-8-sig")) if x["ref"] == "5")
+        yield "removed activity = SCHEDULE_CHANGED, not carried", n5["revision_status"] == "SCHEDULE_CHANGED" and \
+            n5["activity_group"] != "Activity Removed From Schedule"
+        r = run("revise", rev, XER, "--previous", p, "--out", a)
+        yield "refuses to overwrite the previous mapping", r.returncode != 0
+
 def main():
     if not (BOQ.exists() and XER.exists()):
         print(f"SKIP: test data not found in {TEST_DIR}")
@@ -200,6 +281,10 @@ def main():
         resave(lambda mp: mp[0].update(amount="15000"))
         ok = build() != 0
         print("" if ok else "FAIL mapping with a changed amount is refused"); passed += ok; failed += not ok
+    for label, good in revision_checks():
+        if not good:
+            print(f"FAIL revise: {label}")
+        passed += bool(good); failed += (not good)
     print(f"\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
 

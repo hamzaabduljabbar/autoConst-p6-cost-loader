@@ -20,6 +20,7 @@ Two-step use (so a person - or Claude - approves the matches before anything is 
 """
 import argparse, csv, difflib, functools, json, math, re, sys
 from collections import defaultdict, OrderedDict
+from difflib import SequenceMatcher
 from pathlib import Path
 
 try:
@@ -630,6 +631,153 @@ def read_mapping(path, groups):
                                     "ref": row.get("ref"), "amount": row.get("amount")}
     return out
 
+# ------------------------------------------------------------------ BOQ revision (keep approved decisions)
+REV_COLS = ["revision_status", "previous_amount", "previous_activity", "previous_split", "revision_note"]
+REVIEW_STATUS = ("NEW", "CHANGED", "REWORDED", "SCHEDULE_CHANGED", "UNASSIGNED")
+
+def line_id(heading, desc):
+    """Row numbers shift when a line is inserted, so a BOQ line is known by its heading + description."""
+    return norm(heading).lower(), norm((desc or "")[:200]).lower()
+
+def read_previous(path):
+    with open(path, encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+    if not rows or not {"heading", "description", "amount", "activity_group", "split"} <= set(rows[0]):
+        sys.exit(f"{path}: not a mapping file from this tool.")
+    for x in rows:
+        x["id"] = line_id(x["heading"], x["description"])
+        x["amt"] = _num(x["amount"]) or 0.0
+    return rows
+
+def diff_boq(prev, results):
+    """Pair revised lines with previous ones. Returns {id(result): (old, kind)} and the deleted lines.
+    Identical lines pair on equal amounts first, so a repeated item keeps its own decision."""
+    olds = defaultdict(list)
+    for x in prev:
+        olds[x["id"]].append(x)
+    pairs = {}
+    ident = lambda r: line_id(r["title"], r["desc"])
+    for exact in (True, False):
+        for r in results:
+            pool = olds.get(ident(r))
+            if id(r) in pairs or not pool:
+                continue
+            hit = next((x for x in pool if abs(x["amt"] - r["amount"]) <= 0.01), None if exact else pool[0])
+            if hit:
+                pool.remove(hit)
+                pairs[id(r)] = (hit, "same" if abs(hit["amt"] - r["amount"]) <= 0.01 else "changed")
+    left = [x for pool in olds.values() for x in pool]
+    # not an exact match: same description under another heading, or small rewording under the same one.
+    # The scope may have moved, so these only ever suggest the old decision
+    for r in results:
+        if id(r) in pairs or not r["desc"]:
+            continue
+        h, d = ident(r)
+        best, best_s = None, 0.85
+        for x in left:
+            s = 1.0 if x["id"][1] == d else (
+                SequenceMatcher(None, d, x["id"][1]).ratio() if x["id"][0] == h and x["id"][1] else 0)
+            if s > best_s or (s == best_s and not best):
+                best, best_s = x, s
+        if best:
+            left.remove(best)
+            pairs[id(r)] = (best, "reworded")
+    return pairs, left
+
+def split_problem(split, targets):
+    """A custom split naming a zone or activity the revised schedule no longer has."""
+    if not split or split.lower() == "equal":
+        return None
+    have = {a["zone"].lower() for a in targets} | {a["code"].lower() for a in targets}
+    gone = [p.split(":")[0].strip() for p in split.split(";")
+            if ":" in p and p.split(":")[0].strip().lower() not in have]
+    return ", ".join(gone) or None
+
+def revise(results, groups, prev):
+    """Carry approved decisions onto the revised BOQ; every line gets a revision_status."""
+    by_base = {g[0]["base"].lower(): k for k, g in groups.items()}
+    by_code = {a["code"].lower(): a for g in groups.values() for a in g}
+    pairs, deleted = diff_boq(prev, results)
+    for r in results:
+        fresh = groups[r["group"]][0]["base"] if r["group"] else ""
+        old, kind = pairs.get(id(r), (None, None))
+        r.update(map_activity=fresh, map_split="equal", prev_amt="", prev_act="", prev_split="", rev_note="")
+        if not old:
+            r["rev_status"], r["rev_note"] = "NEW", "New line - matched fresh."
+            continue
+        act, split = old["activity_group"].strip(), (old["split"] or "equal").strip()
+        r.update(prev_amt=round(old["amt"], 2), prev_act=act, prev_split=split)
+        if kind == "reworded":
+            r["rev_status"] = "REWORDED"
+            r["rev_note"] = (f"Was '{old['description'][:80]}' under '{old['heading']}' - matched fresh, "
+                             "check the previous decision still applies.")
+            continue
+        key, single = by_base.get(act.lower()), by_code.get(act.lower())
+        if act and not key and not single:
+            r["rev_status"] = "SCHEDULE_CHANGED"
+            r["rev_note"] = f"Activity '{act}' is no longer in the schedule - matched fresh."
+            continue
+        gone = split_problem(split, [single] if single else (groups.get(key) or []))
+        if gone:
+            r.update(map_activity=act, map_split="equal", rev_status="SCHEDULE_CHANGED",
+                     rev_note=f"Split '{split}' names {gone}, no longer on this activity - reset to equal.")
+            continue
+        r.update(map_activity=act, map_split=split, conf=old.get("confidence") or r["conf"])
+        if not act:
+            r["rev_status"] = "UNASSIGNED"
+            r["rev_note"] = "Still no activity from the previous round."
+        elif kind == "changed":
+            r["rev_status"] = "CHANGED"
+            r["rev_note"] = (f"Amount {old['amt']:,.2f} -> {r['amount']:,.2f} ({r['amount'] - old['amt']:+,.2f}). "
+                             "Decision kept - check it still holds.")
+        else:
+            r["rev_status"] = "UNCHANGED"
+    return deleted
+
+def write_revised_mapping(results, path):
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        w.writerow(MAP_COLS + REV_COLS)
+        for r in results:
+            w.writerow([r["ref"], r["row"], r["title"], r["desc"][:200], round(r["amount"], 2), r["map_activity"],
+                        r["map_split"], r["conf"], r["basis"], " | ".join(r["flags"]), r["rev_status"], r["prev_amt"],
+                        r["prev_act"], r["prev_split"], r["rev_note"]])
+
+def write_revision(results, deleted, prev, path):
+    """What changed between the two BOQs, biggest money first, with a reconciliation of the totals."""
+    wb = Workbook(); wb.remove(wb.active)
+    old_total, new_total = sum(x["amt"] for x in prev), sum(r["amount"] for r in results)
+    n = lambda s: sum(1 for r in results if r["rev_status"] == s)
+    move = lambda *st: sum(r["amount"] - (r["prev_amt"] or 0) for r in results if r["rev_status"] in st)
+    gone = sum(x["amt"] for x in deleted)
+    added, changed = move("NEW"), move("CHANGED", "REWORDED", "SCHEDULE_CHANGED", "UNASSIGNED", "UNCHANGED")
+    check = old_total + added + changed - gone
+    review = [r for r in results if r["rev_status"] in REVIEW_STATUS]
+    ok = abs(check - new_total) < 0.01
+    sheet(wb, "Summary", ["Item", "Value"], [
+        ["Previous BOQ lines", len(prev)], ["Revised BOQ lines", len(results)],
+        ["Decisions carried with no review", n("UNCHANGED")], ["Lines to review", len(review)],
+        ["   New", n("NEW")], ["   Amount changed (decision kept)", n("CHANGED")],
+        ["   Reworded or moved (matched fresh)", n("REWORDED")],
+        ["   Schedule changed under the decision", n("SCHEDULE_CHANGED")],
+        ["   Never assigned", n("UNASSIGNED")], ["Deleted lines", len(deleted)],
+        ["Previous total", round(old_total, 2)], ["Added by new lines", round(added, 2)],
+        ["Change on existing lines", round(changed, 2)], ["Removed by deleted lines", round(-gone, 2)],
+        ["Revised total", round(new_total, 2)],
+        ["Reconciliation", "PASS" if ok else f"FAIL - off by {new_total - check:,.2f}"],
+    ], [42, 24])
+    money = lambda r: -abs(r["amount"] - (r["prev_amt"] or 0))
+    sheet(wb, "To Review", ["Status", "BOQ ref", "Heading", "Description", "Previous amount", "Amount", "Activity",
+                            "Split", "Previous activity", "Note"],
+          [[r["rev_status"], r["ref"], r["title"], r["desc"], r["prev_amt"], round(r["amount"], 2),
+            r["map_activity"] or "UNMATCHED", r["map_split"], r["prev_act"], r["rev_note"]]
+           for r in sorted(review, key=money)], [18, 8, 26, 50, 14, 14, 28, 16, 28, 60])
+    sheet(wb, "Deleted", ["BOQ ref", "Heading", "Description", "Amount", "Was on activity"],
+          [[x["ref"], x["heading"], x["description"], x["amt"], x["activity_group"]]
+           for x in sorted(deleted, key=lambda x: -x["amt"])], [8, 26, 50, 14, 28])
+    wb.save(path)
+    return len(review), len(deleted), n("UNCHANGED"), ok
+
 # ------------------------------------------------------------------ allocation
 def allocate(results, groups, mapping=None):
     lines = []
@@ -895,10 +1043,11 @@ def check_answer(results, key_path, sheet_name, id_col, cost_col):
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser(description="Load BOQ cost + quantity into a Primavera P6 schedule.")
-    ap.add_argument("mode", choices=["match", "build", "run"])
+    ap.add_argument("mode", choices=["match", "build", "run", "revise"])
     ap.add_argument("boq"); ap.add_argument("xer")
     ap.add_argument("--sheet", help="BOQ sheet name (default: first sheet)")
     ap.add_argument("--out", default="outputs/cost-load")
+    ap.add_argument("--previous", help="revise: the approved mapping CSV of the previous BOQ")
     ap.add_argument("--answer-key", help="TEST ONLY: workbook with a planner's manual result")
     ap.add_argument("--answer-sheet", default="Cost To P6")
     ap.add_argument("--expenses", choices=["auto", "line", "heading"], default="auto",
@@ -915,6 +1064,20 @@ def main():
     rate_outliers(results); duplicate_lines(results)
     map_path = Path(str(out) + "-mapping.csv")
 
+    if a.mode == "revise":
+        if not a.previous:
+            sys.exit("revise needs --previous <approved mapping.csv>.")
+        if Path(a.previous).resolve() == map_path.resolve():
+            sys.exit("--out would overwrite the previous mapping; use a new name, e.g. <job>-revB.")
+        prev = read_previous(a.previous)
+        deleted = revise(results, groups, prev)
+        write_revised_mapping(results, map_path)
+        rev_path = str(out) + "-revision.xlsx"
+        review, gone, kept, ok = write_revision(results, deleted, prev, rev_path)
+        print(f"{kept} decisions carried, {review} lines to review, {gone} deleted. "
+              f"Reconciliation {'PASS' if ok else 'FAIL'}.")
+        print(f"Review: {rev_path}   edit: {map_path}   then run: build")
+        return
     if a.mode == "match":
         write_mapping(results, groups, map_path)
         c = {k: sum(1 for r in results if r["conf"] == k) for k in ("HIGH", "MEDIUM", "LOW")}

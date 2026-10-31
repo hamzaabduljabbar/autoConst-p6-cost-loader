@@ -121,3 +121,10 @@ Excel BOQs only (no scanned PDFs). It loads cost onto an existing schedule - it 
 ---
 
 Built by [Hamza Jabbar](https://hamzajabbar.online) - [AutoConst](https://hamzajabbar.online).
+
+## BOQ revisions
+
+`py scripts/boq_to_p6.py revise <revised boq> <schedule.xer> --previous outputs/<job>-mapping.csv --out outputs/<job>-revB`
+
+Carries approved decisions onto the revised BOQ and lists only new, changed, reworded and deleted lines, with the totals reconciled. Lines are paired by heading + description, so inserted rows shift nothing. See SKILL.md for each status.
+
